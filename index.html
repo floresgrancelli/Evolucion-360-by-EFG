@@ -435,7 +435,7 @@ function reportPage(){
  const firstLoad=press(strengthSessions[0])?.weight;
  const lastLoad=press(strengthSessions.at(-1))?.weight;
  const delta=(name,unit)=>end&&base&&Number.isFinite(Number(end[name]))&&Number.isFinite(Number(base[name]))
-    ?(Number(end[name])-Number(base[name])>=0?'+':'')+fmt(Number(end[name])-Number(base[name]))+' '+unit:'—';
+    ?(Number(end[name])-Number(base[name])>=0?'+':'')+fmt(Number(end[name])-Number(base[name]),(name==='chair30'||name==='walk6m')?0:1)+' '+unit:'—';
  const lastCoach=coachNotes.at(-1),lastText=lastCoach?.coach_review?.note||'No se registró conclusión del entrenador.';
  const lastCheckin=checkinDone.at(-1);
  const sampleWeeks=[0,4,8,12].filter(w=>w<=week);
@@ -450,7 +450,7 @@ function reportPage(){
    '<article class="v2-report"><div class="v2-report-head"><div><div class="v2-kicker">Evolución 360 · Informe de seguimiento físico</div><h2>'+esc(p.name)+'</h2>'+
    '<div class="v2-small">Programa de entrenamiento · Semana '+week+' de 12 · Rutinas full body A/B</div></div><div class="v2-small"><strong>DEMO</strong><br>Datos enteramente ficticios<br>by EFG</div></div>'+
    '<div class="v2-metrics">'+
-   '<div class="v2-stat"><span>Asistencia hasta semana '+week+'</span><strong>'+done.length+'/'+(2*week)+'</strong><span>'+fmt(100*done.length/(2*week),0)+' % de sesiones programadas</span></div>'+
+   '<div class="v2-stat"><span>Asistencia al corte</span><strong>'+done.length+'/'+(2*week)+'</strong><span>'+fmt(100*done.length/(2*week),0)+' % de sesiones programadas</span></div>'+
    '<div class="v2-stat"><span>Cambio de peso</span><strong>'+delta('weight','kg')+'</strong><span>Desde la evaluación inicial</span></div>'+
    '<div class="v2-stat"><span>Cambio en prueba silla 30 s</span><strong>'+delta('chair30','rep')+'</strong><span>Capacidad funcional observada</span></div>'+
    '<div class="v2-stat"><span>Cambio caminata 6 minutos</span><strong>'+delta('walk6m','m')+'</strong><span>Prueba funcional simulada</span></div>'+
