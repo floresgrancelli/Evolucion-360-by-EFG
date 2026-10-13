@@ -356,6 +356,7 @@ function reportPage(){
  const eligible=sessions(p.id).filter(x=>x.week<=week);
  const done=eligible.filter(x=>x.attended);
  const coachNotes=done.filter(x=>getCoachReview(x));
+ const checkinDone=done.filter(x=>x.checkin&&typeof x.checkin==='object');
  const strengthSessions=eligible.filter(x=>x.kind==='A'&&x.attended);
  const press=x=>(x?.segments||[]).find(b=>b.name==='Prensa de piernas');
  const firstLoad=press(strengthSessions[0])?.weight;
@@ -363,6 +364,7 @@ function reportPage(){
  const delta=(name,unit)=>end&&base&&Number.isFinite(Number(end[name]))&&Number.isFinite(Number(base[name]))
     ?(Number(end[name])-Number(base[name])>=0?'+':'')+fmt(Number(end[name])-Number(base[name]))+' '+unit:'—';
  const lastCoach=coachNotes.at(-1),lastText=lastCoach?.coach_review?.note||'No se registró conclusión del entrenador.';
+ const lastCheckin=checkinDone.at(-1);
  const sampleWeeks=[0,4,8,12].filter(w=>w<=week);
  const rows=sampleWeeks.map(w=>{const x=p.measurements.find(m=>m.week===w);
    if(!x)return '<tr><td>S'+w+'</td><td colspan="5">Sin medición</td></tr>';
@@ -381,10 +383,11 @@ function reportPage(){
    '<div class="v2-stat"><span>Cambio caminata 6 minutos</span><strong>'+delta('walk6m','m')+'</strong><span>Prueba funcional simulada</span></div>'+
    '<div class="v2-stat"><span>Prensa de piernas (rutina A)</span><strong>'+((lastLoad!=null)?fmt(lastLoad)+' kg':'—')+'</strong><span>Primera carga: '+((firstLoad!=null)?fmt(firstLoad)+' kg':'—')+'</span></div>'+
    '<div class="v2-stat"><span>Registros con conclusión del entrenador</span><strong>'+coachNotes.length+'/'+done.length+'</strong><span>Sesiones asistidas evaluadas</span></div>'+
+   '<div class="v2-stat"><span>Bienestar previo registrado</span><strong>'+checkinDone.length+'/'+done.length+'</strong><span>Sesiones asistidas con registro descriptivo</span></div>'+ 
    '</div><h3>Evolución en evaluaciones programadas</h3>'+
    '<div class="scroller"><table><thead><tr><th>Semana</th><th>Peso</th><th>Cintura</th><th>Silla 30s</th><th>Caminata 6 min</th><th>Masa libre de grasa*</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
    '<h3 style="margin-top:18px">Seguimiento del entrenador</h3>'+
-   '<p>'+esc(lastText)+'</p><p class="v2-small">Última conclusión disponible: '+(lastCoach?'semana '+lastCoach.week+' · rutina '+lastCoach.kind:'sin registro')+'. No es una indicación médica.</p>'+
+   '<p>'+esc(lastText)+'</p><p class="v2-small">Último bienestar informado: '+(lastCheckin?'Energía '+lastCheckin.checkin.energy+'/5 · fatiga '+lastCheckin.checkin.fatigue+'/5 · semana '+lastCheckin.week:'No registrado')+'. No es evaluación de aptitud.</p><p class="v2-small">Última conclusión disponible: '+(lastCoach?'semana '+lastCoach.week+' · rutina '+lastCoach.kind:'sin registro')+'. No es una indicación médica.</p>'+
    '<h3>Lectura y alcances</h3>'+
    '<p class="v2-small">El informe describe asistencia, progreso en ejercicios y pruebas funcionales, no demuestra causalidad ni eficacia terapéutica. No compara pacientes para determinar resultados clínicos. '+ 
    'El peso, las pruebas funcionales y la carga corresponden a mediciones simuladas. *La masa libre de grasa es ficticia y carece de método instrumental verificado. '+
