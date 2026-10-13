@@ -8,6 +8,14 @@
 - **Para alojarla como una página independiente:** utilizar `index.html` del ZIP en un repositorio **nuevo** y habilitar una plataforma de hosting estático, por ejemplo GitHub Pages. No mezclarlo con repositorios existentes.
 - Funciona sin conexión a internet y **sin depender de un servidor**, salvo las restricciones que pudiera imponer un visor de archivos de dispositivos móviles. Para una mejor experiencia en iPhone, alojar el HTML como página web normal en el siguiente paso.
 
+## Mejoras visibles de la versión 2.0 (demo)
+
+- **📈 Fuerza:** vista individual por ejercicio y rutina A/B con gráficos separados de carga externa y repeticiones por serie, historial semanal, series, RIR y volumen externo estimado. Compara repeticiones únicamente al mismo peso, sin inferir fuerza máxima.
+- **🌿 Bienestar previo:** registro descriptivo editable dentro de cada sesión: energía (1–5), fatiga (1–5), situación referida y observaciones del entrenador. No calcula aptitud ni toma decisiones médicas; incluye un ejemplo ficticio para P01 en semana 8 sesión A.
+- **📄 Informe:** vista individual para corte en semanas 4, 8 o 12, con asistencia, peso, prueba de sentarse-levantarse, caminata de 6 minutos, referencia de prensa, mediciones históricas y última conclusión del entrenador. Incluye **Imprimir / guardar PDF** desde el navegador.
+- Las funciones anteriores de sesiones, PULSE demo, importación CSV, edición de antropometría y conclusiones por entrenamiento se mantienen.
+- **Todos los datos continúan siendo ficticios** y las modificaciones continúan guardándose en el navegador local de cada usuario. No utilizar con información personal de pacientes reales ni considerarlo software de toma de decisiones clínicas.
+
 ## Escenario
 
 - 10 participantes **ficticios**: 5 mujeres y 5 hombres con parámetros iniciales distintos.
@@ -22,9 +30,9 @@
 1. **Panel general:** vista centrada en una persona elegible: asistencia hasta semana seleccionada, peso, carga de fuerza y última FC media; curvas individuales de peso y prensa, asistencia semanal A/B y lista de perfiles. No muestra el total de sesiones grupales.
 2. **Pacientes:** perfiles, cambios antropométricos, fuerza y asistencia; formularios para editar participante y mediciones.
 3. **Full body:** selección de semana, paciente y rutina A/B, registro completo por ejercicio; editar cada bloque y la sesión.
-4. **PULSE demo:** monitor virtual de los 10 participantes, FC minuto a minuto simulada, RPE, minutos × RPE, calorías sintéticas por segmento.
-5. **Resultados:** los indicadores principales son individuales (asistencia/24, evolución de peso o prueba funcional, carga de fuerza, FC media y carga interna); la tabla comparativa del grupo se oculta de manera predeterminada y puede desplegarse como información secundaria.
-6. **Datos y PULSE:** importar CSV con mapeo de columnas, editar/exportar JSON, exportar sesiones CSV y reiniciar escenario.
+4. **Fuerza:** gráfico e historial del progreso de cargas, repeticiones y volumen de un mismo ejercicio.\n5. **PULSE demo:** monitor virtual de los 10 participantes, FC minuto a minuto simulada, RPE, minutos × RPE, calorías sintéticas por segmento.
+6. **Resultados:** los indicadores principales son individuales (asistencia/24, evolución de peso o prueba funcional, carga de fuerza, FC media y carga interna); la tabla comparativa del grupo se oculta de manera predeterminada y puede desplegarse como información secundaria.
+7. **Informe:** resumen visual individual e imprimible para presentar al centro médico.\n8. **Datos y PULSE:** importar CSV con mapeo de columnas, editar/exportar JSON, exportar sesiones CSV y reiniciar escenario.\n9. **Datos técnicos:** explicación científica de los indicadores y sus límites.
 
 ## Importación PULSE
 
