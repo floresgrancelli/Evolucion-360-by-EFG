@@ -400,7 +400,7 @@ const REPORT_INDICATOR_GUIDE=[
 ];
 function reportExplanations(p,week,done,coachNotes,checkinDone,base,end,firstLoad,lastLoad){
  const delta=(key,unit)=>end&&base&&Number.isFinite(Number(end[key]))&&Number.isFinite(Number(base[key]))
-  ?(Number(end[key])-Number(base[key])>=0?'+':'')+fmt(Number(end[key])-Number(base[key]))+' '+unit:'Sin datos';
+  ?(Number(end[key])-Number(base[key])>=0?'+':'')+fmt(Number(end[key])-Number(base[key]),(key==='chair30'||key==='walk6m')?0:1)+' '+unit:'Sin datos';
  const value={
   attendance:done.length+'/'+(2*week)+' ('+fmt(100*done.length/(2*week),0)+' %)',
   weight:delta('weight','kg'),chair:delta('chair30','rep'),walk:delta('walk6m','m'),
@@ -447,6 +447,7 @@ function reportPage(){
    '<div class="toolbar">'+dropdown('patientPick',data.patients.map(q=>[q.id,q.name]),p.id,'Participante')+
    dropdown('reportWeek',[[4,'Semana 4'],[8,'Semana 8'],[12,'Semana 12']],week,'Corte del informe')+'</div>'+
    '<div class="v2-actions"><button class="btn primary" data-action="pdfdownload">⬇ Descargar informe PDF</button><button class="btn" data-action="pdfpreview">👁 Abrir PDF</button><button class="btn ghost" data-action="printreport">🖨 Imprimir</button><button class="btn" data-tab="strength">Ver evolución de fuerza →</button></div>'+
+   '<p class="v2-report-lead">Informe PDF de 3 páginas: resultados, explicación de cada indicador y limitaciones. En iPhone, si no empieza la descarga, tocá «Abrir PDF» y usá Compartir → Guardar en Archivos.</p>'+
    '<article class="v2-report"><div class="v2-report-head"><div><div class="v2-kicker">Evolución 360 · Informe de seguimiento físico</div><h2>'+esc(p.name)+'</h2>'+
    '<div class="v2-small">Programa de entrenamiento · Semana '+week+' de 12 · Rutinas full body A/B</div></div><div class="v2-small"><strong>DEMO</strong><br>Datos enteramente ficticios<br>by EFG</div></div>'+
    '<div class="v2-metrics">'+
