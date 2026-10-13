@@ -446,7 +446,7 @@ function reportPage(){
  return pageHeader('INFORME DE SERVICIO','Evolución individual documentada','Vista destinada a mostrar qué podría recibir un centro médico después de cada evaluación. Todos los participantes y resultados son simulados.')+
    '<div class="toolbar">'+dropdown('patientPick',data.patients.map(q=>[q.id,q.name]),p.id,'Participante')+
    dropdown('reportWeek',[[4,'Semana 4'],[8,'Semana 8'],[12,'Semana 12']],week,'Corte del informe')+'</div>'+
-   '<div class="v2-actions"><button class="btn primary" data-action="printreport">🖨 Imprimir / guardar PDF</button><button class="btn" data-tab="strength">Ver evolución de fuerza →</button></div>'+
+   '<div class="v2-actions"><button class="btn primary" data-action="pdfdownload">⬇ Descargar informe PDF</button><button class="btn" data-action="pdfpreview">👁 Abrir PDF</button><button class="btn ghost" data-action="printreport">🖨 Imprimir</button><button class="btn" data-tab="strength">Ver evolución de fuerza →</button></div>'+
    '<article class="v2-report"><div class="v2-report-head"><div><div class="v2-kicker">Evolución 360 · Informe de seguimiento físico</div><h2>'+esc(p.name)+'</h2>'+
    '<div class="v2-small">Programa de entrenamiento · Semana '+week+' de 12 · Rutinas full body A/B</div></div><div class="v2-small"><strong>DEMO</strong><br>Datos enteramente ficticios<br>by EFG</div></div>'+
    '<div class="v2-metrics">'+
@@ -469,6 +469,191 @@ function reportPage(){
    '<div class="v2-small" style="padding-top:14px;border-top:1px solid #bbd1d9">EVOLUCIÓN 360 by EFG · DEMOSTRACIÓN · No ingresar datos de pacientes reales en esta versión.</div></article>';
 }
 
+
+/* Generación local de PDF A4 vectorial, independiente de window.print y de CDNs. */
+function pdfNormalize(value){
+ const aliases={'—':'-','–':'-','→':' a ','×':'x','•':'-','’':"'",'“':'"','”':'"','…':'...','≥':'>=','≤':'<='};
+ return [...String(value??'')].map(c=>aliases[c]??(c.charCodeAt(0)<=255?c:'?')).join('');
+}
+function pdfEscape(value){
+ return pdfNormalize(value).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/[\r\n\t]/g,' ');
+}
+function pdfBytes(value){
+ const t=pdfNormalize(value);const b=new Uint8Array(t.length);
+ for(let i=0;i<t.length;i++)b[i]=t.charCodeAt(i)&255;
+ return b;
+}
+function pdfTextLines(value, maxChars){
+ const words=pdfNormalize(value).replace(/\s+/g,' ').trim().split(' ');
+ const lines=[];let running='';
+ for(const word of words){
+   if(!word)continue;
+   if(running && (running+' '+word).length>maxChars){lines.push(running);running=word;}
+   else running+=(running?' ':'')+word;
+ }
+ if(running)lines.push(running);
+ return lines;
+}
+function buildReportPdf(){
+ const p=pid(ui.pid),week=Number(ui.reportWeek||12);
+ const initial=p.measurements.find(m=>m.week===0)||p.measurements[0],
+  current=p.measurements.find(m=>m.week===week);
+ const all=sessions(p.id).filter(s=>s.week<=week),done=all.filter(s=>s.attended);
+ const coached=done.filter(s=>getCoachReview(s)),checked=done.filter(s=>s.checkin&&typeof s.checkin==='object');
+ const strength=all.filter(s=>s.kind==='A'&&s.attended);
+ const press=s=>(s?.segments||[]).find(b=>b.name==='Prensa de piernas')?.weight;
+ const firstLoad=press(strength[0]),lastLoad=press(strength.at(-1));
+ const delta=(key,unit)=>{
+  const a=Number(initial?.[key]),b=Number(current?.[key]);
+  return initial&&current&&Number.isFinite(a)&&Number.isFinite(b)?(b-a>=0?'+':'')+fmt(b-a,1)+' '+unit:'-';
+ };
+ const vals={
+   attendance:done.length+'/'+(week*2)+' | '+fmt(done.length/(week*2)*100,0)+'%',
+   weight:delta('weight','kg'),chair:delta('chair30','rep'),
+   walk:delta('walk6m','m'),
+   strength:lastLoad==null?'-':fmt(lastLoad,1)+' kg',
+   coach:coached.length+'/'+done.length,wellness:checked.length+'/'+done.length,
+   waist:delta('waist','cm'),lean:delta('lean_mass','kg')
+ };
+ const NAVY=[9,31,47],DARK=[21,60,77],AQUA=[20,151,137],GREY=[92,119,134],
+   WHITE=[255,255,255],PALE=[244,249,251],RULE=[200,222,228],AMBER=[170,107,45];
+ const pages=[[],[],[]];
+ let pg=0;
+ function setPage(n){pg=n;}
+ function rgb(c){pages[pg].push(c.map(x=>(x/255).toFixed(4)).join(' ')+' rg');}
+ function rect(x,y,w,h,color){rgb(color);pages[pg].push(x+' '+y+' '+w+' '+h+' re f');}
+ function txt(x,y,value,size=9,strong=false,color=DARK){
+  rgb(color);
+  pages[pg].push('BT /'+(strong?'F2':'F1')+' '+size+' Tf 1 0 0 1 '+x+' '+y+' Tm ('+pdfEscape(value)+') Tj ET');
+ }
+ function para(x,y,value,maxChars=98,size=8.5,lineHeight=12,color=GREY,maxLines=10){
+  const ls=pdfTextLines(value,maxChars);
+  ls.slice(0,maxLines).forEach((line,i)=>txt(x,y-i*lineHeight,line,size,false,color));
+  return y-Math.min(ls.length,maxLines)*lineHeight;
+ }
+ function frame(number,heading){
+  rect(0,732,595,110,NAVY);rect(34,730,527,3,AQUA);
+  txt(35,806,'EFG / PERFORMANCE HEALTH LAB',10,true,[99,222,205]);
+  txt(35,779,'EVOLUCION 360',23,true,WHITE);
+  txt(35,756,heading,10,false,[216,232,239]);
+  txt(494,801,'DEMO',11,true,[246,212,143]);
+  txt(35,45,'EFG  |  DEMOSTRACION  |  DATOS FICTICIOS  |  NO APLICABLE A PACIENTES REALES',7.7,false,GREY);
+  txt(524,45,number+'/3',8,true,GREY);
+ }
+ setPage(0);frame(1,'INFORME INDIVIDUAL DE SEGUIMIENTO FISICO');
+ txt(35,694,p.name,18,true,DARK);
+ txt(35,675,'Corte de evaluacion: semana '+week+' de 12 | 2 sesiones full body por semana',9,false,GREY);
+ txt(35,650,'01  |  RESULTADOS E INDICADORES',11,true,DARK);
+ const cards=[
+  ['ASISTENCIA',vals.attendance,'Sesiones realizadas / programadas'],
+  ['PESO CORPORAL',vals.weight,'Cambio desde el inicio'],
+  ['SILLA EN 30 SEGUNDOS',vals.chair,'Diferencia funcional'],
+  ['CAMINATA DE 6 MINUTOS',vals.walk,'Diferencia de distancia'],
+  ['PRENSA DE PIERNAS',vals.strength,firstLoad==null?'Sin referencia inicial':'Inicial '+fmt(firstLoad,1)+' kg'],
+  ['SEGUIMIENTO DEL ENTRENADOR',vals.coach,'Sesiones evaluadas / realizadas'],
+  ['BIENESTAR PREVIO',vals.wellness,'Registros / sesiones realizadas'],
+  ['CALIDAD DEL DATO',checked.length<done.length?'INCOMPLETO':'DOCUMENTADO','Revisar valores faltantes']
+ ];
+ for(let i=0;i<cards.length;i++){
+  const c=i%2,x=35+c*270,top=635-Math.floor(i/2)*82;
+  rect(x,top-71,255,71,PALE);rect(x,top-2,255,2,RULE);
+  txt(x+12,top-18,cards[i][0],8.1,true,GREY);
+  txt(x+12,top-45,cards[i][1],16,true,(i===7&&checked.length<done.length)?AMBER:DARK);
+  txt(x+12,top-61,cards[i][2],8.1,false,GREY);
+ }
+ txt(35,295,'02  |  EVALUACIONES EN EL TIEMPO',11,true,DARK);
+ rect(35,261,525,24,NAVY);
+ const xx=[44,100,185,271,356,459];
+ const heads=['SEM','PESO','CINTURA','SILLA','CAMINATA','MASA LIBRE*'];
+ heads.forEach((h,i)=>txt(xx[i],270,h,8,true,WHITE));
+ for(let i=0;i<4;i++){
+  const w=i*4,record=p.measurements.find(m=>m.week===w),y=241-i*26;
+  if(i%2===0)rect(35,y-8,525,24,PALE);
+  const values=record?['S'+w,fmt(record.weight,1)+' kg',fmt(record.waist,1)+' cm',fmt(record.chair30,0)+' rep',fmt(record.walk6m,0)+' m',fmt(record.lean_mass,1)+' kg']:['S'+w,'-','-','-','-','-'];
+  values.forEach((v,k)=>txt(xx[k],y,v,8.5,k===0,DARK));
+ }
+ txt(35,113,'LECTURA GENERAL',10,true,AQUA);
+ para(35,99,'Los cambios expresan una evolucion observada. No prueban causalidad ni permiten atribuir resultados al entrenamiento o al tratamiento de forma aislada.',111,8.2,11,GREY,3);
+ txt(35,58,'* La masa libre de grasa incluye tejidos distintos del musculo. Medicion simulada.',8,false,GREY);
+
+ // Pages 2 and 3: metodología, interpretación y limitaciones por variable
+ function guideCard(top,guide,index,value){
+  const base=top-111;
+  rect(35,base,525,111,PALE);rect(35,base,3,111,AQUA);
+  txt(47,top-21,(index+1).toString().padStart(2,'0')+'  '+guide.heading,10.5,true,DARK);
+  txt(462,top-21,String(value??'-'),9,true,AQUA);
+  para(47,top-41,'QUE MIDE: '+guide.definition,112,8.3,11,GREY,2);
+  para(47,top-65,'CALCULO: '+guide.method,112,8.3,11,GREY,2);
+  para(47,top-89,'LECTURA: '+guide.interpretation,112,8.3,11,GREY,2);
+ }
+ setPage(1);frame(2,'METODOLOGIA E INTERPRETACION | PRIMERA PARTE');
+ txt(35,711,'QUE SIGNIFICA CADA INDICADOR',13,true,DARK);
+ txt(35,693,'Definicion, forma de calculo y limites de interpretacion.',9,false,GREY);
+ REPORT_INDICATOR_GUIDE.slice(0,5).forEach((m,i)=>guideCard(679-i*125,m,i,vals[m.key]));
+ setPage(2);frame(3,'METODOLOGIA E INTERPRETACION | SEGUNDA PARTE');
+ txt(35,711,'TRAZABILIDAD Y CALIDAD DE LAS MEDICIONES',12,true,DARK);
+ txt(35,693,'La completitud y el protocolo de medicion importan tanto como el valor.',9,false,GREY);
+ REPORT_INDICATOR_GUIDE.slice(5).forEach((m,i)=>guideCard(679-i*125,m,5+i,vals[m.key]));
+ rect(35,70,525,94,[234,246,244]);
+ txt(47,145,'OBSERVACIONES PARA EL CENTRO MEDICO',9.7,true,DARK);
+ const flag=checked.length<done.length
+  ?'Registro de bienestar: '+checked.length+' de '+done.length+' sesiones asistidas; la ausencia es un dato faltante.'
+  :'Las sesiones asistidas contienen registros de bienestar.';
+ para(47,129,flag,109,8.2,12,DARK,2);
+ para(47,104,'Mantener condiciones de evaluacion comparables y registrar fecha, tecnica, equipo y observaciones. La app no diagnostica, no prescribe ni valida decisiones clinicas.',109,8.2,12,GREY,3);
+ // PDF objects: 3 pages, fonts Helvetica en WinAnsi (sin servicios externos).
+ const objects=[
+  null,
+  '<< /Type /Catalog /Pages 2 0 R >>',
+  '<< /Type /Pages /Kids [3 0 R 7 0 R 9 0 R] /Count 3 >>',
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+  '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+  '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+  null,
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 8 0 R >>',
+  null,
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 10 0 R >>',
+  null
+ ];
+ const streams={6:pdfBytes(pages[0].join('\n')+'\n'),8:pdfBytes(pages[1].join('\n')+'\n'),10:pdfBytes(pages[2].join('\n')+'\n')};
+ const blocks=[];let position=0;
+ function add(b){blocks.push(b);position+=b.length;}
+ add(pdfBytes('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'));
+ const positions=[0];
+ for(let id=1;id<objects.length;id++){
+  positions[id]=position;add(pdfBytes(id+' 0 obj\n'));
+  if(streams[id]){
+   add(pdfBytes('<< /Length '+streams[id].length+' >>\nstream\n'));
+   add(streams[id]);add(pdfBytes('endstream\n'));
+  }else add(pdfBytes(objects[id]+'\n'));
+  add(pdfBytes('endobj\n'));
+ }
+ const xref=position;
+ add(pdfBytes('xref\n0 '+objects.length+'\n0000000000 65535 f \n'));
+ for(let id=1;id<objects.length;id++)add(pdfBytes(String(positions[id]).padStart(10,'0')+' 00000 n \n'));
+ add(pdfBytes('trailer\n<< /Root 1 0 R /Size '+objects.length+' >>\nstartxref\n'+xref+'\n%%EOF\n'));
+ const out=new Uint8Array(position);let i=0;for(const b of blocks){out.set(b,i);i+=b.length;}
+ return out;
+}
+function deliverReportPdf(mode){
+ try{
+  const bytes=buildReportPdf();
+  const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+  if(mode==='preview'){
+   const popup=window.open(url,'_blank');
+   if(!popup){window.location.href=url;}
+  }else{
+   const link=document.createElement('a');
+   link.href=url;link.download='Evolucion360_Informe_'+ui.pid+'_S'+ui.reportWeek+'.pdf';
+   link.style.display='none';document.body.appendChild(link);link.click();link.remove();
+  }
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+  toast(mode==='preview'?'PDF abierto. Podés compartirlo o guardarlo desde el navegador.':'PDF generado. Revisá Descargas o Archivos del dispositivo.');
+ }catch(e){
+  alert('No se pudo generar el PDF: '+e.message+'. Probá abrir la app desde Safari o Chrome.');
+ }
+}
+
 function render(){const nav=$('#navigation');nav.innerHTML=PAGES.map(([k,l])=>`<button class="${ui.tab===k?'active':''}" data-tab="${k}">${l}</button>`).join('');const body={dashboard,patients:patientPage,sessions:sessionsPage,monitor:monitorPage,strength:strengthPage,results:resultsPage,report:reportPage,integration:integrationPage,technical:technicalPage};$('#app').innerHTML=(body[ui.tab]||dashboard)()+`<div class="footnote">EVOLUCIÓN 360 by EFG · Prototipo offline · Todos los datos son inventados y editables · Programa: 2 sesiones/semana, 12 semanas · No es un producto sanitario ni sustituye evaluación clínica. Los datos quedan en este navegador.</div>`;document.title='Evolución 360 by EFG · '+PAGES.find(p=>p[0]===ui.tab)?.[1];}
 function input(k,label,val,type='number',other=''){return `<label class="field">${esc(label)}<input name="${esc(k)}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(val)}" ${other} required></label>`}
 function selectField(k,label,arr,val){return `<label class="field">${esc(label)}<select name="${esc(k)}">${options(arr,val)}</select></label>`}
@@ -486,7 +671,7 @@ function parseCsv(src){src=src.replace(/^\uFEFF/,'');const out=[];let row=[],cur
 function csvPreviewFile(file){const reader=new FileReader();reader.onload=()=>{try{const rows=parseCsv(String(reader.result));if(rows.length<2)throw Error('CSV vacío: se necesitan encabezados y datos');ui.pulsePreview=rows;ui.pulseMapping={};render();const holder=$('#csvPreview');if(!holder)return;holder.innerHTML=previewMarkup();}catch(err){toast('No se pudo leer: '+err.message)}};reader.readAsText(file,'utf-8')}
 function previewMarkup(){const rows=ui.pulsePreview;if(rows.length<2)return 'No hay datos';const heads=rows[0];const required=[['patient','Paciente/ID'],['week','Semana'],['kind','Sesión A o B'],['hr_mean','FC media'],['hr_max','FC máxima'],['kcal_est','Calorías estimadas'],['duration','Duración (min)']];const hints={patient:['patient','paciente','patient_id','id','name','nombre'],week:['week','semana'],kind:['kind','sesion','session','rutina'],hr_mean:['hr_mean','fc_media','avg_hr','average_hr','hravg'],hr_max:['hr_max','fc_max','max_hr','maximum_hr','hrmax'],kcal_est:['kcal_est','calories','calorias','kcal'],duration:['duration','duracion','minutes','minutos']};let form=required.map(([k,label])=>{let automatic=heads.findIndex(h=>(hints[k]||[]).includes(h.toLowerCase().trim())),value=ui.pulseMapping?.[k]??automatic;return dropdown('map_'+k,[[-1,'— Elegir columna —'],...heads.map((h,i)=>[i,h])],value,label)}).join('');let preview=rows.slice(1,4).map(r=>`<tr>${heads.map((_,i)=>`<td>${esc(r[i]||'')}</td>`).join('')}</tr>`).join('');return `<div class="space"></div><h3>Mapear columnas del CSV</h3><div class="split">${form}</div><div class="space"></div><div class="scroller"><table class="table"><thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${preview}</tbody></table></div><p class="tiny">Importación disponible únicamente para pacientes y sesiones existentes. No se inventarán curvas de frecuencia cardíaca minuto a minuto.</p><button class="btn primary" data-action="applycsv">Importar ${rows.length-1} registros revisados</button>`}
 function applyCsv(){const rows=ui.pulsePreview;if(rows.length<2)throw Error('No hay CSV listo');const map={};for(const k of ['patient','week','kind','hr_mean','hr_max','kcal_est','duration']){const value=+document.getElementById('map_'+k)?.value;if(!Number.isInteger(value)||value<0)throw Error('Falta mapear '+k);map[k]=value}const updated=[];for(let i=1;i<rows.length;i++){let row=rows[i],v=k=>(row[map[k]]??'').trim(),person=data.patients.find(p=>[p.id,p.name].some(x=>x.toLowerCase()===v('patient').toLowerCase())),week=+v('week'),kind=v('kind').trim().toUpperCase();if(!person||!Number.isInteger(week)||week<1||week>12||!['A','B'].includes(kind))throw Error('Fila '+(i+1)+': identificador de paciente, semana o sesión no reconocido');let ss=findSession(person.id,week,kind);if(!ss)throw Error('Fila '+(i+1)+': sesión inexistente');const values={};for(let k of ['hr_mean','hr_max','kcal_est','duration']){const n=Number(v(k).replace(',','.'));if(!Number.isFinite(n)||n<0)throw Error('Fila '+(i+1)+': '+k+' inválido');values[k]=n}if(values.hr_mean>values.hr_max||values.hr_max>240||values.duration>240||values.kcal_est>3000||values.hr_mean<30)throw Error('Fila '+(i+1)+': valores cardíacos/fisiológicos inconsistentes');updated.push({ss,values})}for(const {ss,values}of updated){Object.assign(ss,values,{attended:true,source:'PULSE_CSV',hr_curve:[]});ss.notes=(ss.notes||'')+' · Métricas importadas desde CSV';}save();ui.pulsePreview=[];render();toast('Importadas '+updated.length+' sesiones con datos CSV. Curvas inexistentes permanecen vacías.');}
-function action(cmd){if(cmd==='printreport')window.print();if(cmd==='template')download('ejemplo_importacion_pulse_efg.csv',csvEncode([['patient_id','week','kind','hr_mean','hr_max','kcal_est','duration'],['P01',1,'A',125,152,280,50]]),'text/csv;charset=utf-8');if(cmd==='exportjson')download('evolucion360_escenario_demo.json',JSON.stringify(data,null,2),'application/json;charset=utf-8');if(cmd==='exportcsv')download('evolucion360_sesiones.csv',csvEncode([['paciente','semana','rutina','fecha','asistencia','duracion','rpe','fc_media','fc_max','kcal_estimadas','origen'],...data.sessions.map(s=>[pid(s.patient_id).name,s.week,s.kind,s.date,s.attended?'SI':'NO',s.duration,s.rpe,s.hr_mean,s.hr_max,s.kcal_est,s.source])]),'text/csv;charset=utf-8');if(cmd==='reset'){if(confirm('¿Restablecer todos los participantes y sesiones ficticias? Se perderán las ediciones locales.')){data=structuredClone(seed);ui.pid='P01';ui.week=8;ui.sessionWeek=8;ui.sessionKind='A';save();render()}}if(cmd==='applycsv'){try{applyCsv()}catch(e){alert(e.message)}}}
+function action(cmd){if(cmd==='pdfdownload')deliverReportPdf('download');if(cmd==='pdfpreview')deliverReportPdf('preview');if(cmd==='printreport')window.print();if(cmd==='template')download('ejemplo_importacion_pulse_efg.csv',csvEncode([['patient_id','week','kind','hr_mean','hr_max','kcal_est','duration'],['P01',1,'A',125,152,280,50]]),'text/csv;charset=utf-8');if(cmd==='exportjson')download('evolucion360_escenario_demo.json',JSON.stringify(data,null,2),'application/json;charset=utf-8');if(cmd==='exportcsv')download('evolucion360_sesiones.csv',csvEncode([['paciente','semana','rutina','fecha','asistencia','duracion','rpe','fc_media','fc_max','kcal_estimadas','origen'],...data.sessions.map(s=>[pid(s.patient_id).name,s.week,s.kind,s.date,s.attended?'SI':'NO',s.duration,s.rpe,s.hr_mean,s.hr_max,s.kcal_est,s.source])]),'text/csv;charset=utf-8');if(cmd==='reset'){if(confirm('¿Restablecer todos los participantes y sesiones ficticias? Se perderán las ediciones locales.')){data=structuredClone(seed);ui.pid='P01';ui.week=8;ui.sessionWeek=8;ui.sessionKind='A';save();render()}}if(cmd==='applycsv'){try{applyCsv()}catch(e){alert(e.message)}}}
 function importJson(file){const rdr=new FileReader();rdr.onload=()=>{try{let incoming=JSON.parse(String(rdr.result));if(!incoming||incoming.project!=='Evolución 360 by EFG'||!Array.isArray(incoming.patients)||!Array.isArray(incoming.sessions)||incoming.patients.length!==10||incoming.sessions.length!==240)throw Error('El archivo no cumple el esquema DEMO de 10 pacientes y 240 sesiones');if(new Set(incoming.sessions.map(s=>s.id)).size!==240)throw Error('Hay IDs de sesión duplicados');if(incoming.patients.some(p=>!p.id||!Array.isArray(p.measurements)))throw Error('Hay pacientes incompletos');data=incoming;save();ui.pid=data.patients[0].id;render();toast('Escenario restaurado correctamente')}catch(e){alert('No se pudo importar: '+e.message)}};rdr.readAsText(file,'utf-8')}
 document.addEventListener('click',event=>{const x=event.target.closest('[data-tab],[data-pick],[data-edit],[data-measure],[data-session],[data-block],[data-coach],[data-checkin],[data-action]');if(!x)return;if(x.dataset.tab){ui.tab=x.dataset.tab;render();scrollTo({top:0,behavior:'instant'})}else if(x.dataset.pick){ui.pid=x.dataset.pick;ui.tab=ui.tab==='monitor'?'monitor':'patients';render()}else if(x.dataset.edit==='patient')editPatient();else if(x.dataset.edit==='measurement')editMeasurement(currentM(pid(ui.pid),ui.week).week);else if(x.dataset.measure!==undefined)editMeasurement(x.dataset.measure);else if(x.dataset.coach){editCoachReview(x.dataset.coach)}else if(x.dataset.checkin){editCheckin(x.dataset.checkin)}else if(x.dataset.session){ui.pid=data.sessions.find(s=>s.id===x.dataset.session)?.patient_id||ui.pid;editSession(x.dataset.session)}else if(x.dataset.block!==undefined)editBlock(+x.dataset.block);else if(x.dataset.action)action(x.dataset.action)});
 document.addEventListener('change',event=>{const e=event.target;if(!e.id)return;switch(e.id){case 'patientPick':ui.pid=e.value;render();break;case 'weekPick':ui.week=Number(e.value);render();break;case 'metricPick':ui.metric=e.value;render();break;case 'resultVariable':ui.resultsVariable=e.value;render();break;case 'progressKind':ui.progressKind=e.value;ui.progressExercise='';render();break;case 'progressExercise':ui.progressExercise=e.value;render();break;case 'reportWeek':ui.reportWeek=Number(e.value);render();break;case 'sessionWeek':ui.sessionWeek=Number(e.value);ui.monitorMinute=25;render();break;case 'sessionKind':ui.sessionKind=e.value;render();break;case 'minutePick':ui.monitorMinute=Number(e.value);render();break;case 'pulseCsv':if(e.files[0])csvPreviewFile(e.files[0]);break;case 'importJson':if(e.files[0])importJson(e.files[0]);break;}});
