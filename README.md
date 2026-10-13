@@ -30,9 +30,12 @@
 1. **Panel general:** vista centrada en una persona elegible: asistencia hasta semana seleccionada, peso, carga de fuerza y última FC media; curvas individuales de peso y prensa, asistencia semanal A/B y lista de perfiles. No muestra el total de sesiones grupales.
 2. **Pacientes:** perfiles, cambios antropométricos, fuerza y asistencia; formularios para editar participante y mediciones.
 3. **Full body:** selección de semana, paciente y rutina A/B, registro completo por ejercicio; editar cada bloque y la sesión.
-4. **Fuerza:** gráfico e historial del progreso de cargas, repeticiones y volumen de un mismo ejercicio.\n5. **PULSE demo:** monitor virtual de los 10 participantes, FC minuto a minuto simulada, RPE, minutos × RPE, calorías sintéticas por segmento.
+4. **Fuerza:** gráfico e historial del progreso de cargas, repeticiones y volumen de un mismo ejercicio.
+5. **PULSE demo:** monitor virtual de los 10 participantes, FC minuto a minuto simulada, RPE, minutos × RPE, calorías sintéticas por segmento.
 6. **Resultados:** los indicadores principales son individuales (asistencia/24, evolución de peso o prueba funcional, carga de fuerza, FC media y carga interna); la tabla comparativa del grupo se oculta de manera predeterminada y puede desplegarse como información secundaria.
-7. **Informe:** resumen visual individual e imprimible para presentar al centro médico.\n8. **Datos y PULSE:** importar CSV con mapeo de columnas, editar/exportar JSON, exportar sesiones CSV y reiniciar escenario.\n9. **Datos técnicos:** explicación científica de los indicadores y sus límites.
+7. **Informe:** resumen visual individual e imprimible para presentar al centro médico.
+8. **Datos y PULSE:** importar CSV con mapeo de columnas, editar/exportar JSON, exportar sesiones CSV y reiniciar escenario.
+9. **Datos técnicos:** explicación científica de los indicadores y sus límites.
 
 ## Importación PULSE
 
